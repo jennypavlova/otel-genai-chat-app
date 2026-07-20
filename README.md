@@ -1,18 +1,50 @@
-# 🔭 otel-genai-chat-app
+# otel-genai-chat-app
 
-A minimal chat application for exploring **OpenTelemetry GenAI semantic conventions** with the OpenAI SDK.
+A minimal chat application for exploring **OpenTelemetry GenAI semantic conventions** with the OpenAI SDK and Kibana APM.
 
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.10+ · FastAPI · streaming SSE |
 | Frontend | React 19 · TypeScript · Vite |
 | Instrumentation | `opentelemetry-instrumentation-openai-v2` (vanilla) **or** EDOT Python |
-| Telemetry sink | Local OTel Collector → Elasticsearch / Kibana APM **or** Elastic Cloud direct |
+| Local telemetry sink | **EDOT Collector** → Elasticsearch / Kibana APM |
+| Cloud telemetry sink | Elastic Cloud managed OTLP endpoint (no collector needed) |
 
-Every chat request automatically produces:
+Every chat request automatically produces — without touching application code:
 - `gen_ai.*` spans (model, token usage, request/response attributes per the [GenAI semconv](https://opentelemetry.io/docs/specs/semconv/gen-ai/))
 - HTTP server spans for the FastAPI endpoint
-- Optional prompt/response content as span events (toggle with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`)
+- Optional prompt/response content as OTel log events (`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`)
+- Pre-aggregated APM metrics (`service_transaction`, service map) via the `elasticapm` connector
+
+---
+
+## Architecture
+
+```
+Browser (React + TypeScript)
+  │  POST /api/chat  (SSE stream)
+  ▼
+FastAPI backend ──── openai.chat.completions.create(stream=True) ──► LLM API
+  │
+  │  OTLP/HTTP  :4318  (zero-code auto-instrumentation)
+  ▼
+EDOT Collector  ─── elasticapm processor + connector
+  │                      └─ generates service_transaction metrics for APM UI
+  ├── traces-generic.otel-*   (gen_ai.* as dotted names, not labels.*)
+  ├── metrics-*.otel-*        (token usage, latency histograms, APM aggregates)
+  └── logs-generic.otel-*     (span events with message content)
+         ▼
+     Elasticsearch → Kibana APM
+```
+
+### Why EDOT Collector, not APM Server?
+
+APM Server always ECS-translates OTLP data: `gen_ai.system` becomes `labels.gen_ai_system` (underscores, buried in `labels.*`). That's not the OTel-native format.
+
+The **EDOT Collector** (Elastic Distribution of OpenTelemetry Collector) is the self-managed equivalent of the Elastic Cloud managed OTLP endpoint:
+- Stores everything in `traces-generic.otel-*` with **`attributes.gen_ai.*` dotted names preserved**
+- The built-in `elasticapm` connector generates `service_transaction` metrics → service appears in Kibana APM Service Inventory with throughput and latency charts
+- No APM Server required
 
 ---
 
@@ -26,41 +58,46 @@ cd otel-genai-chat-app
 cp .env.example .env
 ```
 
-Edit `.env` and fill in:
-- `OPENAI_API_KEY` — your OpenAI-compatible API key
-- `OPENAI_BASE_URL` — blank for OpenAI; or e.g. `http://localhost:4000/v1` for LiteLLM
-- `OPENAI_MODEL` — any model your provider supports (default: `gpt-4o-mini`)
-
-> ⚠️ **Never commit `.env` to git.** It is gitignored. Store secrets only there.
-
-### 2. Start the OTel Collector (local stack path)
+Edit `.env` — minimum required:
 
 ```bash
-# Requires Docker. Starts the otelcol-contrib collector on :4318 (HTTP) / :4317 (gRPC).
-# Your local Elasticsearch must already be running — the collector forwards to it.
-make collector-up
+OPENAI_API_KEY=sk-...          # your OpenAI-compatible API key
+OPENAI_MODEL=gpt-4o-mini       # any model your provider supports
+
+# Local EDOT Collector path (default):
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+ELASTIC_ES_ENDPOINT=http://host.docker.internal:9200
+ELASTIC_ES_USER=elastic
+ELASTIC_ES_PASSWORD=changeme
 ```
 
-See [Collector → Elasticsearch setup](#collector--elasticsearch-setup) for the required `.env` variables.
+> **Never commit `.env` to git.** It is gitignored. All secrets go there only.
+
+### 2. Start the EDOT Collector
+
+Requires Docker and a locally running Elasticsearch + Kibana.
+
+```bash
+make collector-up
+# Starts the EDOT Collector on :4318 (HTTP) and :4317 (gRPC)
+```
 
 ### 3. Set up the backend
 
-Choose **vanilla** or **EDOT** — or set up both to compare side-by-side:
-
 ```bash
-make setup-vanilla   # creates backend/.venv-vanilla
-make setup-edot      # creates backend/.venv-edot
+make setup-edot      # creates backend/.venv-edot  (recommended)
+make setup-vanilla   # creates backend/.venv-vanilla (for comparison)
 ```
 
 ### 4. Run the backend
 
 ```bash
-make run-vanilla     # vanilla upstream OTel instrumentation
+make run-edot        # EDOT Python — OTel-native + Elastic-enriched APM data
 # or
-make run-edot        # EDOT Python (Elastic-enriched)
+make run-vanilla     # vanilla upstream OTel instrumentation
 ```
 
-The backend starts on **http://localhost:8000**.
+Backend starts on **http://localhost:8000**.
 
 ### 5. Run the frontend
 
@@ -73,42 +110,99 @@ Open **http://localhost:5173** and start chatting.
 
 ---
 
-## Architecture
+## Testing the telemetry
 
-```
-Browser (React + TS)
-  │  POST /api/chat  (SSE stream)
-  ▼
-FastAPI backend  ──── openai.chat.completions.create(stream=True) ──►  LLM API
-  │
-  │  OTLP/HTTP  (auto-instrumented, no manual span code)
-  ▼
-OTel Collector  ──► Elasticsearch  ──► Kibana APM
-   (or direct)   └──► Elastic Cloud managed OTLP
+### Basic test
+
+Send a chat message and wait ~10 seconds (EDOT Collector batch timeout) then check Kibana APM.
+
+### Multi-turn conversation test
+
+The most interesting traces come from multi-turn conversations — each user/assistant turn is captured as a span event on the `gen_ai.*` span, so you can see the full conversation history per request:
+
+1. Send a first message: `"Tell me about vector databases in 2 sentences"`
+2. Follow up: `"Which one has the most GitHub stars?"`
+3. Follow up again: `"Compare Milvus vs Qdrant on write performance"`
+
+In Kibana APM each **POST /api/chat** request becomes a trace. Open the waterfall for the third request and inspect the `gen_ai.*` span — the `gen_ai.input.messages` attribute will contain all three turns of context sent to the model.
+
+### What to look for in Kibana
+
+1. **Kibana → Observability → APM → Services** — find `otel-genai-chat-app` (environment: `development`)
+2. Click the service → **Transactions** → select a `POST /api/chat` transaction
+3. Open the trace waterfall. You will see:
+   - HTTP server span (`POST /api/chat`) at the root
+   - Child `chat openai` span for the OpenAI call
+4. Click the `chat openai` span → **Span details** tab:
+
+| Attribute | What you see |
+|---|---|
+| `gen_ai.provider.name` | `openai` |
+| `gen_ai.request.model` | `gpt-4o-mini` |
+| `gen_ai.response.model` | actual model version returned |
+| `gen_ai.usage.input_tokens` | prompt token count |
+| `gen_ai.usage.output_tokens` | completion token count |
+| `gen_ai.input.messages` | full conversation history sent (JSON) |
+| `gen_ai.output.messages` | assistant response (JSON) |
+
+> These appear as **`attributes.gen_ai.*`** in OTel-native format (dotted names), not `labels.gen_ai_*`.
+
+5. In **Span events** (when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_AND_EVENT`):
+   - `gen_ai.choice` events — one per response message
+   - `gen_ai.user.message`, `gen_ai.system.message` events — one per input turn
+
+### Verify OTel-native storage in Elasticsearch
+
+```bash
+# Confirm traces land in traces-generic.otel-* (not traces-apm-*)
+curl -s "http://localhost:9200/traces-generic.otel-*/_search" \
+  -u elastic:changeme \
+  -H "Content-Type: application/json" \
+  -d '{
+    "size": 1,
+    "query": {"term": {"service.name": "otel-genai-chat-app"}},
+    "sort": [{"@timestamp": "desc"}],
+    "_source": ["attributes.gen_ai*", "data_stream"]
+  }' | python3 -m json.tool
 ```
 
-The instrumentation wraps the FastAPI process at startup via `opentelemetry-instrument` — no changes to application code are needed.
+You should see `attributes.gen_ai.operation.name`, `attributes.gen_ai.provider.name` etc. — **not** `labels.gen_ai_*`.
 
 ---
 
-## Configuration reference
+## Telemetry export paths
 
-All settings live in `.env` (gitignored). See `.env.example` for the full list.
+### Path A — Local EDOT Collector (default)
 
-| Variable | Description | Example |
-|---|---|---|
-| `OPENAI_API_KEY` | API key for your LLM provider | `sk-…` |
-| `OPENAI_BASE_URL` | Base URL (blank = OpenAI default) | `http://localhost:4000/v1` |
-| `OPENAI_MODEL` | Default model name | `gpt-4o-mini` |
-| `OTEL_SERVICE_NAME` | Service name in APM | `otel-genai-chat-app` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | Where to send telemetry | `http://localhost:4318` |
-| `OTEL_EXPORTER_OTLP_HEADERS` | Auth headers (Elastic Cloud) | `Authorization=ApiKey …` |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | Exporter protocol | `http/protobuf` |
-| `OTEL_RESOURCE_ATTRIBUTES` | Extra resource attributes; **required for EDOT APM service discovery** — set `telemetry.distro.name=elastic` so Kibana recognises the service as EDOT-managed | `telemetry.distro.name=elastic` |
-| `OTEL_DEPLOYMENT_ENVIRONMENT` | Deployment environment shown in APM UI | `development` |
-| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Capture prompt/response content as span events (`true` or `false`) | `false` |
-| `ELASTIC_ES_ENDPOINT` | ES endpoint for the local collector | `http://host.docker.internal:9200` |
-| `ELASTIC_ES_API_KEY` | ES API key for the local collector | `base64string…` |
+The EDOT Collector runs locally via docker-compose and replicates what the Elastic Cloud managed OTLP endpoint does:
+
+```
+App → EDOT Collector (:4318) → Elasticsearch
+         └── elasticapm connector generates service_transaction metrics
+```
+
+Required `.env` variables:
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+ELASTIC_ES_ENDPOINT=http://host.docker.internal:9200
+ELASTIC_ES_USER=elastic
+ELASTIC_ES_PASSWORD=changeme
+# or use API key:
+# ELASTIC_ES_API_KEY=your-api-key-here
+```
+
+Start: `make collector-up`
+
+### Path B — Elastic Cloud managed OTLP (no collector)
+
+Point the SDK directly at the Elastic Cloud managed OTLP endpoint. No local collector or APM Server required.
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://<cluster>.apm.<region>.aws.found.io
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=ApiKey <your-elastic-api-key>
+```
+
+The Cloud endpoint stores data identically to Path A — `traces-generic.otel-*`, `attributes.gen_ai.*` dotted names, same Kibana APM experience.
 
 ---
 
@@ -117,88 +211,71 @@ All settings live in `.env` (gitignored). See `.env.example` for the full list.
 | | Vanilla (`make run-vanilla`) | EDOT (`make run-edot`) |
 |---|---|---|
 | Package | `opentelemetry-distro` + `opentelemetry-instrumentation-openai-v2` | `elastic-opentelemetry` |
-| GenAI semconv spans | ✅ `gen_ai.*` attributes | ✅ `gen_ai.*` attributes + Elastic enrichment |
-| Kibana APM transaction names | Basic URL pattern | Richer names from EDOT conventions |
+| GenAI semconv spans | `gen_ai.*` attributes | `gen_ai.*` + Elastic enrichment |
+| Kibana APM transaction names | Basic URL pattern | Richer names |
 | Service maps | Partial | Full (Elastic agent metadata) |
-| Setup | Manual package list | Single `elastic-opentelemetry` install |
+| `agent.name` in APM | `opentelemetry/python` | `opentelemetry/python/elastic` |
 
 Run both and compare in **Kibana APM → Services → otel-genai-chat-app**.
 
 ---
 
-## Telemetry export paths
+## Configuration reference
 
-### Path A — Local collector (default for local development)
+All settings live in `.env` (gitignored). See `.env.example` for full details.
 
-1. Start your local Elasticsearch + Kibana (not included here — use your existing stack or a docker-compose from another repo).
-2. Create an Elasticsearch API key with write access to `logs-*`, `metrics-*`, `traces-*`.
-3. Set in `.env`:
-   ```
-   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
-   ELASTIC_ES_ENDPOINT=http://host.docker.internal:9200
-   ELASTIC_ES_API_KEY=<your-es-api-key>
-   ```
-4. Run `make collector-up`.
-
-The collector uses the **`elasticsearch` exporter in OTel mapping mode** (`mapping.mode: otel`) so all data is indexed into OTel-compatible index templates that Kibana APM understands.
-
-### Path B — Elastic Cloud (managed OTLP endpoint, no collector)
-
-1. In your Elastic Cloud project: **Add data → Applications → OpenTelemetry**. Copy the endpoint URL and generate an API key.
-2. Set in `.env`:
-   ```
-   OTEL_EXPORTER_OTLP_ENDPOINT=https://<cluster>.apm.<region>.aws.found.io
-   OTEL_EXPORTER_OTLP_HEADERS=Authorization=ApiKey <your-elastic-api-key>
-   ```
-3. Skip `make collector-up` — the backend sends directly to the cloud.
+| Variable | Description | Default |
+|---|---|---|
+| `OPENAI_API_KEY` | API key for your LLM provider | — |
+| `OPENAI_BASE_URL` | Base URL (blank = OpenAI default; LiteLLM: `http://localhost:4000/v1`) | blank |
+| `OPENAI_MODEL` | Model name | `gpt-4o-mini` |
+| `OTEL_SERVICE_NAME` | Service name in APM | `otel-genai-chat-app` |
+| `OTEL_DEPLOYMENT_ENVIRONMENT` | Environment label in APM filter | `development` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP export destination | `http://localhost:4318` |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Auth headers for Cloud | blank |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | Exporter protocol | `http/protobuf` |
+| `OTEL_RESOURCE_ATTRIBUTES` | Extra resource attributes | `telemetry.distro.name=elastic` |
+| `OTEL_SEMCONV_STABILITY_OPT_IN` | Enable latest GenAI semconv | `gen_ai_latest_experimental` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Capture prompt/response (`NO_CONTENT` / `SPAN_AND_EVENT` / `EVENT_ONLY` / `SPAN_ONLY`) | `SPAN_AND_EVENT` |
+| `ELASTIC_ES_ENDPOINT` | Elasticsearch URL for EDOT Collector | `http://host.docker.internal:9200` |
+| `ELASTIC_ES_USER` | Elasticsearch username | `elastic` |
+| `ELASTIC_ES_PASSWORD` | Elasticsearch password | — |
+| `ELASTIC_ES_API_KEY` | Elasticsearch API key (alternative to user/password) | — |
 
 ---
 
-## Collector → Elasticsearch setup
+## EDOT Collector config
 
-The `otel-collector-config.yaml` uses the `elasticsearch` exporter from [otelcol-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib). Key settings:
+`edot-collector-config.yaml` — key design decisions:
 
 ```yaml
+processors:
+  elasticapm: {}           # enriches spans with Elastic APM attributes
+
+connectors:
+  elasticapm: {}           # generates service_transaction + span metrics from traces
+
 exporters:
-  elasticsearch:
-    endpoints: ["${env:ELASTIC_ES_ENDPOINT}"]
-    api_key: "${env:ELASTIC_ES_API_KEY}"
+  elasticsearch/otel:
     mapping:
-      mode: otel    # ← required for Kibana APM to display traces correctly
+      mode: otel           # writes to traces-generic.otel-* (NOT traces-apm-*)
 ```
 
-The collector image (`otelcol-contrib:latest`) is pulled from GitHub Container Registry — no authentication needed.
-
----
-
-## Viewing traces in Kibana
-
-> **EDOT APM visibility prerequisite:** For the service to appear under **Kibana → Observability → APM**, you must set `OTEL_RESOURCE_ATTRIBUTES=telemetry.distro.name=elastic` in your `.env`. This attribute tells Kibana that the data comes from an EDOT-managed SDK. Without it, spans still arrive in Elasticsearch but the service will not surface in the APM Services list. Also set `OTEL_DEPLOYMENT_ENVIRONMENT=development` (or your preferred value) so the environment filter in APM works correctly.
-
-1. **Kibana → Observability → APM → Services** — find `otel-genai-chat-app`.
-2. Click the service → **Transactions** → select a `POST /api/chat` transaction.
-3. Open the waterfall view. You will see:
-   - The FastAPI HTTP span at the top
-   - A child `gen_ai.chat` span for the OpenAI call with attributes like:
-     - `gen_ai.system` = `openai`
-     - `gen_ai.request.model`
-     - `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens`
-     - Prompt/response content as span events (only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`; defaults to `false`)
-4. Switch between vanilla and EDOT runs to compare attribute richness.
+The `elasticapm` component appears in **two roles**: as a `processor` (enrichment, in the traces pipeline) and as a `connector` (metric generation, bridging the traces and metrics pipelines). Both are needed for full APM UI support.
 
 ---
 
 ## LiteLLM compatibility
 
-This app is designed to work with [LiteLLM](https://github.com/BerriAI/litellm) as a drop-in OpenAI-compatible proxy:
+Works with any OpenAI-compatible gateway:
 
 ```bash
-# Start LiteLLM with your preferred provider
+# Start LiteLLM
 litellm --model ollama/llama3.2 --port 4000
 
 # In .env:
 OPENAI_BASE_URL=http://localhost:4000/v1
-OPENAI_API_KEY=any-string   # LiteLLM accepts any key in this mode
+OPENAI_API_KEY=any-string
 OPENAI_MODEL=ollama/llama3.2
 ```
 
@@ -206,10 +283,10 @@ OPENAI_MODEL=ollama/llama3.2
 
 ## Development notes
 
-- **Scripts are bash** — `run-vanilla.sh` and `run-edot.sh` must be executable (`chmod +x`). The `Makefile` calls them via `bash` so the `+x` bit isn't strictly required.
-- **Two virtualenvs** (`backend/.venv-vanilla`, `backend/.venv-edot`) keep the two OTel distros cleanly separated — avoid mixing packages between them.
-- **No OTel code in the app** — all instrumentation is injected by `opentelemetry-instrument` at process start. This is intentional: the point is to test zero-code auto-instrumentation.
-- The Vite dev server proxies `/api` → `http://localhost:8000`, so the browser never needs to know the backend port and no CORS setup is required for development.
+- **Two virtualenvs** (`backend/.venv-vanilla`, `backend/.venv-edot`) keep the two OTel distros cleanly separated.
+- **No OTel code in the app** — all instrumentation is injected by `opentelemetry-instrument` at process start. Zero-code auto-instrumentation is the whole point.
+- The Vite dev server proxies `/api` → `http://localhost:8000`, so no CORS configuration is needed in development.
+- **Batch timeout**: the EDOT Collector flushes every 5 seconds — wait at least that long after sending a message before checking Kibana or querying Elasticsearch.
 
 ---
 
@@ -218,5 +295,7 @@ OPENAI_MODEL=ollama/llama3.2
 - [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
 - [`opentelemetry-instrumentation-openai-v2`](https://pypi.org/project/opentelemetry-instrumentation-openai-v2/)
 - [EDOT Python (elastic-opentelemetry)](https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python/setup)
+- [EDOT Collector](https://www.elastic.co/docs/reference/edot-collector)
+- [Elastic APM connector](https://www.elastic.co/docs/reference/edot-collector/components/elasticapmconnector)
 - [Elastic Cloud managed OTLP quickstart](https://www.elastic.co/docs/solutions/observability/get-started/quickstart-elastic-cloud-otel-endpoint)
-- [otelcol-contrib elasticsearch exporter](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/elasticsearchexporter)
+- [OTel data streams vs classic APM](https://www.elastic.co/docs/reference/opentelemetry/compatibility/data-streams)

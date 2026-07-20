@@ -35,11 +35,19 @@ elif [[ "${OTEL_RESOURCE_ATTRIBUTES}" != *"telemetry.distro.name"* ]]; then
   export OTEL_RESOURCE_ATTRIBUTES="${OTEL_RESOURCE_ATTRIBUTES},telemetry.distro.name=elastic"
 fi
 
+# Enable latest experimental GenAI semconv if not already set.
+# This switches opentelemetry-instrumentation-openai-v2 to the v_new code path which:
+#   1. properly handles OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_AND_EVENT
+#   2. sets gen_ai.provider.name (new semconv) instead of gen_ai.system (old semconv)
+#   3. is required for Kibana APM 9.x GenAI tab to show message content
+export OTEL_SEMCONV_STABILITY_OPT_IN="${OTEL_SEMCONV_STABILITY_OPT_IN:-gen_ai_latest_experimental}"
+
 echo "▶  Starting backend (EDOT Python) — OTLP → $OTEL_EXPORTER_OTLP_ENDPOINT"
 echo "   Service:     ${OTEL_SERVICE_NAME:-otel-genai-chat-app}"
 echo "   Environment: $OTEL_DEPLOYMENT_ENVIRONMENT"
 echo "   Model:       ${OPENAI_MODEL:-gpt-4o-mini}"
 echo "   Resources:   $OTEL_RESOURCE_ATTRIBUTES"
+echo "   Semconv:     $OTEL_SEMCONV_STABILITY_OPT_IN"
 
 "$VENV/bin/opentelemetry-instrument" \
   --service_name "${OTEL_SERVICE_NAME:-otel-genai-chat-app}" \

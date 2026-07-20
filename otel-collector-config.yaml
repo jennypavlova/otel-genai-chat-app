@@ -1,9 +1,17 @@
-# OTel Collector configuration for local development.
-# Receives OTLP data from the Python backend and forwards it to a local
-# Elasticsearch instance so traces appear in Kibana APM.
+# Vanilla OTel Collector config — kept for reference / debugging only.
 #
-# ES credentials are injected from docker-compose environment variables —
-# no secrets are stored in this file.
+# The primary local pipeline uses edot-collector-config.yaml (EDOT Collector),
+# which adds the elasticapm connector for service_transaction metrics so Kibana
+# APM Service Inventory works.
+#
+# Use this config only when you need:
+#   - Span inspection via zpages: http://localhost:55679/debug/tracez
+#   - A minimal OTLP → ES pipeline without any Elastic-specific components
+#
+# NOTE: this path generates NO service_transaction metrics, so the service
+# will have limited APM UI support (no throughput/latency charts).
+#
+# ES credentials are injected from docker-compose environment variables.
 
 receivers:
   otlp:
@@ -19,16 +27,11 @@ processors:
     limit_mib: 512
     spike_limit_mib: 128
 
-  # Detect host / OS resource attributes from the environment and the system.
-  # Uses override: false so the app's own resource attributes always win.
   resourcedetection:
     detectors: [env, system]
     timeout: 2s
     override: false
 
-  # Inject deployment.environment so Kibana APM can group services by
-  # environment.  The app can override this by setting the attribute itself;
-  # override: false in resourcedetection above leaves app-set values intact.
   resource:
     attributes:
       - key: deployment.environment
@@ -48,37 +51,22 @@ extensions:
     endpoint: 0.0.0.0:55679
 
 exporters:
-  # Elasticsearch exporter — sends traces, metrics and logs using the OTel
-  # mapping mode so data appears correctly in Kibana APM / Logs / Metrics.
-  #
-  # Auth: set ONE of the two options in your .env:
-  #   Option A (local basic auth): ELASTIC_ES_USER / ELASTIC_ES_PASSWORD
-  #   Option B (Elastic Cloud / API key): ELASTIC_ES_API_KEY
+  # OTel-native: gen_ai.* attributes stored with their original dotted names.
   elasticsearch:
     endpoints:
       - ${env:ELASTIC_ES_ENDPOINT}
     user: ${env:ELASTIC_ES_USER}
     password: ${env:ELASTIC_ES_PASSWORD}
-    # api_key: ${env:ELASTIC_ES_API_KEY}   # uncomment and remove user/password for Cloud
+    # api_key: ${env:ELASTIC_ES_API_KEY}   # uncomment for Cloud
     mapping:
-      mode: otel          # critical: tells ES to use OTel index templates
+      mode: otel
     sending_queue:
       enabled: true
       num_consumers: 4
       queue_size: 100
     tls:
-      insecure_skip_verify: true  # safe for local self-signed certs; remove for prod
+      insecure_skip_verify: true
 
-  # Forward traces to APM Server so Kibana APM Service Inventory shows the service.
-  # APM Server adds transaction.type, processor.event, agent.name — fields that the
-  # raw OTel-native ES path never produces.  Anonymous auth enabled on the container.
-  otlphttp/apm:
-    endpoint: http://apm-server:8200
-    tls:
-      insecure: true
-
-  # Human-readable debug output — detailed shows attribute key/value pairs,
-  # which is much more useful when validating GenAI semantic conventions.
   debug:
     verbosity: detailed
 
@@ -88,9 +76,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, resource, batch]
-      # Dual-export: OTel-native to ES (gen_ai.* fields visible in Discover)
-      #              + APM Server (service appears in APM Service Inventory)
-      exporters: [elasticsearch, otlphttp/apm, debug]
+      exporters: [elasticsearch, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, resource, batch]

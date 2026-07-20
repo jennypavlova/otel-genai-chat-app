@@ -1,66 +1,28 @@
 services:
-  # Standalone APM Server — processes OTel spans and adds the APM fields
-  # (transaction.type, processor.event, agent.name) that make services appear
-  # in Kibana APM Service Inventory.  Exposed on host port 8202 to avoid
-  # conflicts with anything else on 8200/8201.
+  # ── EDOT Collector — self-managed equivalent of Elastic Cloud managed OTLP ───
   #
-  # The collector forwards traces to BOTH this APM Server AND directly to ES,
-  # so you can inspect raw gen_ai.* OTel fields in Discover while also seeing
-  # the service in the APM UI.
-  apm-server:
-    image: docker.elastic.co/apm/apm-server:9.2.0-SNAPSHOT
-    command: >
-      --strict.perms=false
-      -e
-      -E apm-server.host=0.0.0.0:8200
-      -E apm-server.auth.anonymous.enabled=true
-      -E output.elasticsearch.hosts=["http://host.docker.internal:9200"]
-      -E output.elasticsearch.username=${ELASTIC_ES_USER:-elastic}
-      -E output.elasticsearch.password=${ELASTIC_ES_PASSWORD:-changeme}
-      -E setup.kibana.host=http://host.docker.internal:5601
-      -E setup.kibana.username=${ELASTIC_ES_USER:-elastic}
-      -E setup.kibana.password=${ELASTIC_ES_PASSWORD:-changeme}
+  # Replicates managed OTLP locally:
+  #   - Receives OTLP from the app on ports 4317 (gRPC) and 4318 (HTTP)
+  #   - Stores traces in traces-generic.otel-* (OTel-native, gen_ai.* as dotted names)
+  #   - elasticapm connector generates service_transaction metrics → Kibana APM UI
+  #
+  # App config: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+  #             OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+  edot-collector:
+    image: docker.elastic.co/elastic-agent/elastic-otel-collector:9.4.2
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./edot-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "8202:8200"   # host:8202 → APM Server inside container at :8200
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    environment:
+      - ELASTIC_ES_ENDPOINT=${ELASTIC_ES_ENDPOINT:-http://host.docker.internal:9200}
+      - ELASTIC_ES_USER=${ELASTIC_ES_USER:-elastic}
+      - ELASTIC_ES_PASSWORD=${ELASTIC_ES_PASSWORD:-changeme}
+      - ELASTIC_ES_API_KEY=${ELASTIC_ES_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8200/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # OTel Collector (contrib build — includes the Elasticsearch exporter).
-  # Listens on OTLP/HTTP :4318 and OTLP/gRPC :4317 on localhost.
-  # Forwards all telemetry (traces, metrics, logs) to your local Elasticsearch.
-  #
-  # Prerequisites:
-  #   - Your local ES/Kibana is already running (not started here).
-  #   - Set credentials in your .env — see .env.example for both auth options.
-  #     Default ELASTIC_ES_ENDPOINT=http://host.docker.internal:9200 assumes
-  #     ES is on the host at port 9200.
-  otel-collector:
-    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
-    command: ["--config=/etc/otelcol-contrib/config.yaml"]
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
-    ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP (default for the app)
-      - "8888:8888"   # Prometheus metrics for the collector itself
-      - "13133:13133" # health_check extension
-      - "55679:55679" # zpages (pipeline debug UI: http://localhost:55679/debug/tracez)
-    environment:
-      - ELASTIC_ES_ENDPOINT=${ELASTIC_ES_ENDPOINT:-http://host.docker.internal:9200}
-      - ELASTIC_ES_USER=${ELASTIC_ES_USER:-}
-      - ELASTIC_ES_PASSWORD=${ELASTIC_ES_PASSWORD:-}
-      - ELASTIC_ES_API_KEY=${ELASTIC_ES_API_KEY:-}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"   # Linux compat
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:13133/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      disable: true

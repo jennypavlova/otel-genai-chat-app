@@ -42,12 +42,14 @@ run-frontend: ## Start Vite dev server (frontend)
 
 # ── Collector ─────────────────────────────────────────────────────────────────
 
-collector-up: ## Start the OTel collector (docker-compose, detached)
+collector-up: ## Start the EDOT Collector (docker-compose, detached)
 	docker compose up -d
-	@echo "✅  Collector listening on :4318 (HTTP) and :4317 (gRPC)"
+	@echo "✅  EDOT Collector listening on :4318 (HTTP) and :4317 (gRPC)"
+	@echo "   Traces → traces-generic.otel-*  (gen_ai.* as dotted names)"
+	@echo "   Metrics → metrics-*.otel-*      (service_transaction for APM UI)"
 
-collector-down: ## Stop and remove the OTel collector container
-	docker compose down
+collector-down: ## Stop and remove the EDOT Collector container
+	docker compose down --remove-orphans
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 
