@@ -18,6 +18,7 @@ services:
       - "4318:4318"   # OTLP HTTP (default for the app)
       - "8888:8888"   # Prometheus metrics for the collector itself
       - "13133:13133" # health_check extension
+      - "55679:55679" # zpages (pipeline debug UI: http://localhost:55679/debug/tracez)
     environment:
       - ELASTIC_ES_ENDPOINT=${ELASTIC_ES_ENDPOINT:-http://host.docker.internal:9200}
       - ELASTIC_ES_USER=${ELASTIC_ES_USER:-}

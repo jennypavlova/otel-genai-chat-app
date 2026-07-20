@@ -104,7 +104,9 @@ All settings live in `.env` (gitignored). See `.env.example` for the full list.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Where to send telemetry | `http://localhost:4318` |
 | `OTEL_EXPORTER_OTLP_HEADERS` | Auth headers (Elastic Cloud) | `Authorization=ApiKey …` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | Exporter protocol | `http/protobuf` |
-| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Record prompt/response in spans | `true` |
+| `OTEL_RESOURCE_ATTRIBUTES` | Extra resource attributes; **required for EDOT APM service discovery** — set `telemetry.distro.name=elastic` so Kibana recognises the service as EDOT-managed | `telemetry.distro.name=elastic` |
+| `OTEL_DEPLOYMENT_ENVIRONMENT` | Deployment environment shown in APM UI | `development` |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Capture prompt/response content as span events (`true` or `false`) | `false` |
 | `ELASTIC_ES_ENDPOINT` | ES endpoint for the local collector | `http://host.docker.internal:9200` |
 | `ELASTIC_ES_API_KEY` | ES API key for the local collector | `base64string…` |
 
@@ -171,6 +173,8 @@ The collector image (`otelcol-contrib:latest`) is pulled from GitHub Container R
 
 ## Viewing traces in Kibana
 
+> **EDOT APM visibility prerequisite:** For the service to appear under **Kibana → Observability → APM**, you must set `OTEL_RESOURCE_ATTRIBUTES=telemetry.distro.name=elastic` in your `.env`. This attribute tells Kibana that the data comes from an EDOT-managed SDK. Without it, spans still arrive in Elasticsearch but the service will not surface in the APM Services list. Also set `OTEL_DEPLOYMENT_ENVIRONMENT=development` (or your preferred value) so the environment filter in APM works correctly.
+
 1. **Kibana → Observability → APM → Services** — find `otel-genai-chat-app`.
 2. Click the service → **Transactions** → select a `POST /api/chat` transaction.
 3. Open the waterfall view. You will see:
@@ -179,7 +183,7 @@ The collector image (`otelcol-contrib:latest`) is pulled from GitHub Container R
      - `gen_ai.system` = `openai`
      - `gen_ai.request.model`
      - `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens`
-     - Prompt/response content as log events (if `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`)
+     - Prompt/response content as span events (only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`; defaults to `false`)
 4. Switch between vanilla and EDOT runs to compare attribute richness.
 
 ---

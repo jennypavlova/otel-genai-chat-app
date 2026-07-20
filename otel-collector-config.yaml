@@ -19,6 +19,22 @@ processors:
     limit_mib: 512
     spike_limit_mib: 128
 
+  # Detect host / OS resource attributes from the environment and the system.
+  # Uses override: false so the app's own resource attributes always win.
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 2s
+    override: false
+
+  # Inject deployment.environment so Kibana APM can group services by
+  # environment.  The app can override this by setting the attribute itself;
+  # override: false in resourcedetection above leaves app-set values intact.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: development
+        action: insert
+
   batch:
     timeout: 5s
     send_batch_size: 512
@@ -53,22 +69,23 @@ exporters:
     tls:
       insecure_skip_verify: true  # safe for local self-signed certs; remove for prod
 
-  # Human-readable debug output (useful to verify data flowing through)
+  # Human-readable debug output — detailed shows attribute key/value pairs,
+  # which is much more useful when validating GenAI semantic conventions.
   debug:
-    verbosity: basic
+    verbosity: detailed
 
 service:
   extensions: [health_check, pprof, zpages]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resourcedetection, resource, batch]
       exporters: [elasticsearch, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resourcedetection, resource, batch]
       exporters: [elasticsearch, debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, resourcedetection, resource, batch]
       exporters: [elasticsearch, debug]

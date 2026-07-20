@@ -21,6 +21,7 @@ setup-edot: ## Create .venv-edot and install EDOT Python dependencies
 	$(PYTHON) -m venv $(BACKEND)/.venv-edot
 	$(BACKEND)/.venv-edot/bin/pip install --upgrade pip
 	$(BACKEND)/.venv-edot/bin/pip install -r $(BACKEND)/requirements-edot.txt
+	$(BACKEND)/.venv-edot/bin/opentelemetry-bootstrap -a install
 	@echo "✅  .venv-edot ready"
 
 # ── Backend run ───────────────────────────────────────────────────────────────
