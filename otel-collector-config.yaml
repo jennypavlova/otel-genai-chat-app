@@ -34,10 +34,16 @@ extensions:
 exporters:
   # Elasticsearch exporter — sends traces, metrics and logs using the OTel
   # mapping mode so data appears correctly in Kibana APM / Logs / Metrics.
+  #
+  # Auth: set ONE of the two options in your .env:
+  #   Option A (local basic auth): ELASTIC_ES_USER / ELASTIC_ES_PASSWORD
+  #   Option B (Elastic Cloud / API key): ELASTIC_ES_API_KEY
   elasticsearch:
     endpoints:
       - ${env:ELASTIC_ES_ENDPOINT}
-    api_key: ${env:ELASTIC_ES_API_KEY}
+    user: ${env:ELASTIC_ES_USER}
+    password: ${env:ELASTIC_ES_PASSWORD}
+    # api_key: ${env:ELASTIC_ES_API_KEY}   # uncomment and remove user/password for Cloud
     mapping:
       mode: otel          # critical: tells ES to use OTel index templates
     sending_queue:

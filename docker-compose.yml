@@ -5,7 +5,7 @@ services:
   #
   # Prerequisites:
   #   - Your local ES/Kibana is already running (not started here).
-  #   - Set ELASTIC_ES_ENDPOINT and ELASTIC_ES_API_KEY in your .env.
+  #   - Set credentials in your .env — see .env.example for both auth options.
   #     Default ELASTIC_ES_ENDPOINT=http://host.docker.internal:9200 assumes
   #     ES is on the host at port 9200.
   otel-collector:
@@ -20,7 +20,9 @@ services:
       - "13133:13133" # health_check extension
     environment:
       - ELASTIC_ES_ENDPOINT=${ELASTIC_ES_ENDPOINT:-http://host.docker.internal:9200}
-      - ELASTIC_ES_API_KEY=${ELASTIC_ES_API_KEY}
+      - ELASTIC_ES_USER=${ELASTIC_ES_USER:-}
+      - ELASTIC_ES_PASSWORD=${ELASTIC_ES_PASSWORD:-}
+      - ELASTIC_ES_API_KEY=${ELASTIC_ES_API_KEY:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Linux compat
     restart: unless-stopped
