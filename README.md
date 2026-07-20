@@ -116,6 +116,10 @@ Open **http://localhost:5173** and start chatting.
 
 Send a chat message and wait ~10 seconds (EDOT Collector batch timeout) then check Kibana APM.
 
+![OTel GenAI Chat app — FizzBuzz example](docs/screenshot-app.png)
+
+![Kibana APM trace — GenAI tab showing operation, model, provider, token counts and full conversation](docs/screenshot-kibana-trace.png)
+
 ### Multi-turn conversation test
 
 The most interesting traces come from multi-turn conversations — each user/assistant turn is captured as a span event on the `gen_ai.*` span, so you can see the full conversation history per request:
