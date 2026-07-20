@@ -65,6 +65,7 @@ async def _stream_chat(messages: list[Message], model: str) -> AsyncGenerator[st
             model=model,
             messages=openai_messages,  # type: ignore[arg-type]
             stream=True,
+            stream_options={"include_usage": True},  # gives gen_ai.usage.* in OTel span
         )
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
