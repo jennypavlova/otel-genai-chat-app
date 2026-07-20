@@ -13,16 +13,20 @@ import openai
 from .config import config
 
 
+_DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+
 def make_client() -> openai.OpenAI:
     """Return a configured synchronous OpenAI client.
 
-    Pass base_url only when explicitly set so the default OpenAI endpoint is
-    used when OPENAI_BASE_URL is empty.
+    Always pass base_url explicitly so the SDK never falls back to reading
+    OPENAI_BASE_URL from the environment — an empty string there would cause
+    "Request URL is missing an http:// or https:// protocol".
     """
-    kwargs: dict = {"api_key": config.openai_api_key}
-    if config.openai_base_url:
-        kwargs["base_url"] = config.openai_base_url
-    return openai.OpenAI(**kwargs)
+    return openai.OpenAI(
+        api_key=config.openai_api_key,
+        base_url=config.openai_base_url or _DEFAULT_BASE_URL,
+    )
 
 
 # Module-level singleton — the OTel instrumentation patches openai.OpenAI so
