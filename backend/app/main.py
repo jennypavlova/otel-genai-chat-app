@@ -61,13 +61,14 @@ async def _stream_chat(messages: list[Message], model: str) -> AsyncGenerator[st
     openai_messages = [{"role": m.role, "content": m.content} for m in messages]
 
     try:
-        with client.chat.completions.stream(
+        stream = client.chat.completions.create(
             model=model,
             messages=openai_messages,  # type: ignore[arg-type]
-        ) as stream:
-            for text in stream.text_stream:
-                if text:
-                    yield f"data: {json.dumps({'content': text})}\n\n"
+            stream=True,
+        )
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield f"data: {json.dumps({'content': chunk.choices[0].delta.content})}\n\n"
     except Exception as exc:
         log.error("OpenAI streaming error: %s", exc)
         yield f"data: {json.dumps({'error': str(exc)})}\n\n"
