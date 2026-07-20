@@ -1,4 +1,36 @@
 services:
+  # Standalone APM Server — processes OTel spans and adds the APM fields
+  # (transaction.type, processor.event, agent.name) that make services appear
+  # in Kibana APM Service Inventory.  Exposed on host port 8202 to avoid
+  # conflicts with anything else on 8200/8201.
+  #
+  # The collector forwards traces to BOTH this APM Server AND directly to ES,
+  # so you can inspect raw gen_ai.* OTel fields in Discover while also seeing
+  # the service in the APM UI.
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:9.2.0-SNAPSHOT
+    command: >
+      --strict.perms=false
+      -e
+      -E apm-server.host=0.0.0.0:8200
+      -E apm-server.auth.anonymous.enabled=true
+      -E output.elasticsearch.hosts=["http://host.docker.internal:9200"]
+      -E output.elasticsearch.username=${ELASTIC_ES_USER:-elastic}
+      -E output.elasticsearch.password=${ELASTIC_ES_PASSWORD:-changeme}
+      -E setup.kibana.host=http://host.docker.internal:5601
+      -E setup.kibana.username=${ELASTIC_ES_USER:-elastic}
+      -E setup.kibana.password=${ELASTIC_ES_PASSWORD:-changeme}
+    ports:
+      - "8202:8200"   # host:8202 → APM Server inside container at :8200
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8200/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # OTel Collector (contrib build — includes the Elasticsearch exporter).
   # Listens on OTLP/HTTP :4318 and OTLP/gRPC :4317 on localhost.
   # Forwards all telemetry (traces, metrics, logs) to your local Elasticsearch.

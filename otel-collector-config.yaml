@@ -69,6 +69,14 @@ exporters:
     tls:
       insecure_skip_verify: true  # safe for local self-signed certs; remove for prod
 
+  # Forward traces to APM Server so Kibana APM Service Inventory shows the service.
+  # APM Server adds transaction.type, processor.event, agent.name — fields that the
+  # raw OTel-native ES path never produces.  Anonymous auth enabled on the container.
+  otlphttp/apm:
+    endpoint: http://apm-server:8200
+    tls:
+      insecure: true
+
   # Human-readable debug output — detailed shows attribute key/value pairs,
   # which is much more useful when validating GenAI semantic conventions.
   debug:
@@ -80,7 +88,9 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, resource, batch]
-      exporters: [elasticsearch, debug]
+      # Dual-export: OTel-native to ES (gen_ai.* fields visible in Discover)
+      #              + APM Server (service appears in APM Service Inventory)
+      exporters: [elasticsearch, otlphttp/apm, debug]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, resource, batch]
