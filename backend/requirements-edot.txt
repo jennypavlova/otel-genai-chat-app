@@ -1,0 +1,12 @@
+# ── App ───────────────────────────────────────────────────────────────────────
+openai>=1.60.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+pydantic-settings>=2.3.0
+
+# ── EDOT Python (Elastic Distribution of OpenTelemetry) ───────────────────────
+# elastic-opentelemetry bundles the OTel SDK, OTLP exporter, and all
+# instrumentations (including FastAPI and OpenAI) with Elastic-tuned defaults
+# that produce richer data in Kibana APM (e.g. transaction names, service maps).
+elastic-opentelemetry>=1.11.0

@@ -1,0 +1,31 @@
+services:
+  # OTel Collector (contrib build — includes the Elasticsearch exporter).
+  # Listens on OTLP/HTTP :4318 and OTLP/gRPC :4317 on localhost.
+  # Forwards all telemetry (traces, metrics, logs) to your local Elasticsearch.
+  #
+  # Prerequisites:
+  #   - Your local ES/Kibana is already running (not started here).
+  #   - Set ELASTIC_ES_ENDPOINT and ELASTIC_ES_API_KEY in your .env.
+  #     Default ELASTIC_ES_ENDPOINT=http://host.docker.internal:9200 assumes
+  #     ES is on the host at port 9200.
+  otel-collector:
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP (default for the app)
+      - "8888:8888"   # Prometheus metrics for the collector itself
+      - "13133:13133" # health_check extension
+    environment:
+      - ELASTIC_ES_ENDPOINT=${ELASTIC_ES_ENDPOINT:-http://host.docker.internal:9200}
+      - ELASTIC_ES_API_KEY=${ELASTIC_ES_API_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux compat
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
