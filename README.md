@@ -120,6 +120,8 @@ Send a chat message and wait ~10 seconds (EDOT Collector batch timeout) then che
 
 ![Kibana APM trace — GenAI tab showing operation, model, provider, token counts and full conversation](docs/screenshot-kibana-trace.png)
 
+> **Note:** The GenAI tab in Kibana APM (operation, model, provider, token counts, conversation view) is work in progress — see [elastic/kibana#279277](https://github.com/elastic/kibana/pull/279277).
+
 ### Multi-turn conversation test
 
 The most interesting traces come from multi-turn conversations — each user/assistant turn is captured as a span event on the `gen_ai.*` span, so you can see the full conversation history per request:
