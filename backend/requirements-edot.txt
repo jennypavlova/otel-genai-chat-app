@@ -6,7 +6,10 @@ python-dotenv>=1.0.0
 pydantic-settings>=2.3.0
 
 # ── EDOT Python (Elastic Distribution of OpenTelemetry) ───────────────────────
-# elastic-opentelemetry bundles the OTel SDK, OTLP exporter, and all
-# instrumentations (including FastAPI and OpenAI) with Elastic-tuned defaults
-# that produce richer data in Kibana APM (e.g. transaction names, service maps).
+# elastic-opentelemetry bundles the OTel SDK, OTLP exporter, and common
+# instrumentations with Elastic-tuned defaults for richer Kibana APM data.
 elastic-opentelemetry>=1.11.0
+
+# OpenAI / GenAI instrumentation — not bundled in elastic-opentelemetry,
+# must be added explicitly. Emits gen_ai.* semantic-convention spans.
+opentelemetry-instrumentation-openai-v2>=2.4b0
