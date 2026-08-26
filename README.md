@@ -120,7 +120,9 @@ Send a chat message and wait ~10 seconds (EDOT Collector batch timeout) then che
 
 ![Kibana APM trace — GenAI tab showing operation, model, provider, token counts and full conversation](docs/screenshot-kibana-trace.png)
 
-> **Note:** The GenAI tab in Kibana APM (operation, model, provider, token counts, conversation view) is work in progress — see [elastic/kibana#279277](https://github.com/elastic/kibana/pull/279277).
+![Kibana Discover - APM trace — GenAI tab showing operation, model, provider, token counts and full conversation](docs/screenshot-kibana-trace-discover.png)
+
+> **Note:** The GenAI tab in Kibana APM (operation, model, provider, token counts, conversation view) is in technical preview phase — see [elastic/kibana#279277](https://github.com/elastic/kibana/pull/279277).
 
 ### Multi-turn conversation test
 
@@ -131,6 +133,13 @@ The most interesting traces come from multi-turn conversations — each user/ass
 3. Follow up again: `"Compare Milvus vs Qdrant on write performance"`
 
 In Kibana APM each **POST /api/chat** request becomes a trace. Open the waterfall for the third request and inspect the `gen_ai.*` span — the `gen_ai.input.messages` attribute will contain all three turns of context sent to the model.
+
+Another example in screenshots: 
+
+![OTel GenAI Chat app — Multi-turn conversation ](docs/screenshot-multi-app.png)
+
+![Kibana APM trace — Multi-turn conversation](docs/screenshot-multi-kibana.png)
+
 
 ### What to look for in Kibana
 
