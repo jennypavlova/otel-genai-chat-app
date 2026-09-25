@@ -98,6 +98,12 @@ async def chat(body: ChatRequest) -> StreamingResponse:
     )
 
 
+@app.get("/api/config")
+async def api_config() -> dict:
+    """Expose the model from OPENAI_MODEL so the chat UI can default to it."""
+    return {"model": config.openai_model}
+
+
 @app.get("/healthz")
 async def healthz() -> dict:
     return {"status": "ok", "model": config.openai_model}
