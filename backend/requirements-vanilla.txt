@@ -14,5 +14,11 @@ opentelemetry-exporter-otlp-proto-http>=1.39.0
 # GenAI semantic-convention instrumentation for OpenAI Chat Completions
 # Emits gen_ai.* spans with model, token usage, prompt/response events.
 opentelemetry-instrumentation-openai-v2>=2.4b0
+# Keep the GenAI instrumentor importable. Without these, chat works but no
+# gen_ai spans are created: the instrumentor still imports httpx (the OpenAI
+# SDK now ships httpx2 instead), and it imports
+# opentelemetry.util.genai.instruments, which 1.2b0 renamed.
+httpx>=0.27.0
+opentelemetry-util-genai==1.1b0
 # HTTP server spans for FastAPI (traces each /api/chat request)
 opentelemetry-instrumentation-fastapi>=0.60b0
