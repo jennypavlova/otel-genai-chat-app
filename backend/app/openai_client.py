@@ -1,7 +1,8 @@
 """OpenAI client factory.
 
-Uses OPENAI_BASE_URL to support any OpenAI-compatible gateway (LiteLLM, Azure,
-local models, etc.).  The openai-instrumentation-openai-v2 / EDOT instrumentation
+Uses OPENAI_COMPATIBLE_BASE_URL to support any OpenAI-compatible gateway
+(LiteLLM, Azure, Gemini, local models, etc.).  The
+opentelemetry-instrumentation-openai-v2 / EDOT instrumentation
 wraps this client automatically when the process is started via
 `opentelemetry-instrument` — no manual span code required here.
 """
@@ -22,6 +23,7 @@ def make_client() -> openai.OpenAI:
     Always pass base_url explicitly so the SDK never falls back to reading
     OPENAI_BASE_URL from the environment — an empty string there would cause
     "Request URL is missing an http:// or https:// protocol".
+    OPENAI_COMPATIBLE_BASE_URL is the name this app reads.
     """
     return openai.OpenAI(
         api_key=config.openai_api_key,

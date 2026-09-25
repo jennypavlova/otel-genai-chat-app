@@ -29,7 +29,7 @@ export OTEL_DEPLOYMENT_ENVIRONMENT="${OTEL_DEPLOYMENT_ENVIRONMENT:-development}"
 echo "▶  Starting backend (vanilla OTel) — OTLP → $OTEL_EXPORTER_OTLP_ENDPOINT"
 echo "   Service:     ${OTEL_SERVICE_NAME:-otel-genai-chat-app}"
 echo "   Environment: $OTEL_DEPLOYMENT_ENVIRONMENT"
-echo "   Model:       ${OPENAI_MODEL:-gpt-4o-mini}"
+echo "   Model:       ${OPENAI_COMPATIBLE_MODEL:-${OPENAI_MODEL:-gpt-4o-mini}}"
 
 "$VENV/bin/opentelemetry-instrument" \
   --service_name "${OTEL_SERVICE_NAME:-otel-genai-chat-app}" \

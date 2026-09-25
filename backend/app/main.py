@@ -51,7 +51,7 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[Message]
-    model: str | None = None   # overrides OPENAI_MODEL when provided
+    model: str | None = None   # overrides OPENAI_COMPATIBLE_MODEL when provided
 
 
 # ── SSE helpers ───────────────────────────────────────────────────────────────
