@@ -13,9 +13,9 @@ load_dotenv(_root)
 
 class Config:
     # OpenAI-compatible provider
-    openai_api_key: str = os.environ.get("OPENAI_API_KEY", "")
-    openai_base_url: str | None = os.environ.get("OPENAI_BASE_URL") or None
-    openai_model: str = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    openai_api_key: str = os.environ.get("OPENAI_COMPATIBLE_API_KEY", "")
+    openai_base_url: str | None = os.environ.get("OPENAI_COMPATIBLE_BASE_URL") or None
+    openai_model: str = os.environ.get("OPENAI_COMPATIBLE_MODEL", "gpt-4o-mini")
 
     # Frontend CORS — allow Vite dev server and production builds
     cors_origins: list[str] = [
@@ -27,7 +27,7 @@ class Config:
     def validate(self) -> None:
         if not self.openai_api_key:
             raise RuntimeError(
-                "OPENAI_API_KEY is not set. "
+                "OPENAI_COMPATIBLE_API_KEY is not set. "
                 "Copy .env.example to .env and fill in your API key."
             )
 

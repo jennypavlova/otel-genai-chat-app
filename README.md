@@ -61,8 +61,8 @@ cp .env.example .env
 Edit `.env` — minimum required:
 
 ```bash
-OPENAI_API_KEY=sk-...          # your OpenAI-compatible API key
-OPENAI_MODEL=gpt-4o-mini       # any model your provider supports
+OPENAI_COMPATIBLE_API_KEY=sk-...          # your OpenAI-compatible API key
+OPENAI_COMPATIBLE_MODEL=gpt-4o-mini       # any model your provider supports
 
 # Local EDOT Collector path (default):
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
@@ -241,9 +241,9 @@ All settings live in `.env` (gitignored). See `.env.example` for full details.
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENAI_API_KEY` | API key for your LLM provider | — |
-| `OPENAI_BASE_URL` | Base URL (blank = OpenAI default; LiteLLM: `http://localhost:4000/v1`) | blank |
-| `OPENAI_MODEL` | Model name | `gpt-4o-mini` |
+| `OPENAI_COMPATIBLE_API_KEY` | API key for your LLM provider | — |
+| `OPENAI_COMPATIBLE_BASE_URL` | Base URL (blank = OpenAI default; LiteLLM: `http://localhost:4000/v1`) | blank |
+| `OPENAI_COMPATIBLE_MODEL` | Model name | `gpt-4o-mini` |
 | `OTEL_SERVICE_NAME` | Service name in APM | `otel-genai-chat-app` |
 | `OTEL_DEPLOYMENT_ENVIRONMENT` | Environment label in APM filter | `development` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP export destination | `http://localhost:4318` |
@@ -289,9 +289,9 @@ Works with any OpenAI-compatible gateway:
 litellm --model ollama/llama3.2 --port 4000
 
 # In .env:
-OPENAI_BASE_URL=http://localhost:4000/v1
-OPENAI_API_KEY=any-string
-OPENAI_MODEL=ollama/llama3.2
+OPENAI_COMPATIBLE_BASE_URL=http://localhost:4000/v1
+OPENAI_COMPATIBLE_API_KEY=any-string
+OPENAI_COMPATIBLE_MODEL=ollama/llama3.2
 ```
 
 ---

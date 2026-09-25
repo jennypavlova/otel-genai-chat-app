@@ -45,7 +45,7 @@ export OTEL_SEMCONV_STABILITY_OPT_IN="${OTEL_SEMCONV_STABILITY_OPT_IN:-gen_ai_la
 echo "▶  Starting backend (EDOT Python) — OTLP → $OTEL_EXPORTER_OTLP_ENDPOINT"
 echo "   Service:     ${OTEL_SERVICE_NAME:-otel-genai-chat-app}"
 echo "   Environment: $OTEL_DEPLOYMENT_ENVIRONMENT"
-echo "   Model:       ${OPENAI_MODEL:-gpt-4o-mini}"
+echo "   Model:       ${OPENAI_COMPATIBLE_MODEL:-gpt-4o-mini}"
 echo "   Resources:   $OTEL_RESOURCE_ATTRIBUTES"
 echo "   Semconv:     $OTEL_SEMCONV_STABILITY_OPT_IN"
 
