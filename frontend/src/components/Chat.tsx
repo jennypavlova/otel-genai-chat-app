@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { streamChat, type Message } from "../api";
 
-const DEFAULT_MODEL = "gpt-4o-mini";
-
 interface ChatMessage extends Message {
   id: number;
   streaming?: boolean;
@@ -13,7 +11,7 @@ let nextId = 1;
 export function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [model, setModel] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +23,22 @@ export function Chat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // The model box starts from OPENAI_MODEL. A typed value still overrides it per request.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/config")
+      .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+      .then((data: { model?: string }) => {
+        if (!cancelled && data.model) setModel(data.model);
+      })
+      .catch(() => {
+        if (!cancelled) setModel("gpt-4o-mini");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
