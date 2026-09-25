@@ -13,7 +13,9 @@ elastic-opentelemetry>=1.11.0
 # OpenAI / GenAI instrumentation — not bundled in elastic-opentelemetry,
 # must be added explicitly. Emits gen_ai.* semantic-convention spans.
 opentelemetry-instrumentation-openai-v2>=2.4b0
-# 2.4b0 imports httpx and opentelemetry.util.genai.instruments.
-# openai>=2 installs httpx2 instead of httpx, and util-genai 1.2b0 renamed that module.
+# Keep the GenAI instrumentor importable. Without these, chat works but no
+# gen_ai spans are created: the instrumentor still imports httpx (the OpenAI
+# SDK now ships httpx2 instead), and it imports
+# opentelemetry.util.genai.instruments, which 1.2b0 renamed.
 httpx>=0.27.0
 opentelemetry-util-genai==1.1b0
