@@ -12,7 +12,7 @@ load_dotenv(_root)
 
 
 class Config:
-    # Any OpenAI-compatible provider (OpenAI, Gemini, LiteLLM, ...).
+    # OpenAI-compatible provider
     openai_api_key: str = os.environ.get("OPENAI_COMPATIBLE_API_KEY", "")
     openai_base_url: str | None = os.environ.get("OPENAI_COMPATIBLE_BASE_URL") or None
     openai_model: str = os.environ.get("OPENAI_COMPATIBLE_MODEL", "gpt-4o-mini")

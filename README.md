@@ -61,8 +61,8 @@ cp .env.example .env
 Edit `.env` — minimum required:
 
 ```bash
-OPENAI_COMPATIBLE_API_KEY=sk-...     # key for any OpenAI-compatible provider
-OPENAI_COMPATIBLE_MODEL=gpt-4o-mini  # any model that provider supports
+OPENAI_COMPATIBLE_API_KEY=sk-...          # your OpenAI-compatible API key
+OPENAI_COMPATIBLE_MODEL=gpt-4o-mini       # any model your provider supports
 
 # Local EDOT Collector path (default):
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318

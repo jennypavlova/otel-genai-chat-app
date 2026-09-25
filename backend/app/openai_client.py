@@ -1,8 +1,7 @@
 """OpenAI client factory.
 
-Uses OPENAI_COMPATIBLE_BASE_URL to support any OpenAI-compatible gateway
-(LiteLLM, Azure, Gemini, local models, etc.).  The
-opentelemetry-instrumentation-openai-v2 / EDOT instrumentation
+Uses OPENAI_COMPATIBLE_BASE_URL to support any OpenAI-compatible gateway (LiteLLM, Azure,
+local models, etc.).  The openai-instrumentation-openai-v2 / EDOT instrumentation
 wraps this client automatically when the process is started via
 `opentelemetry-instrument` — no manual span code required here.
 """
