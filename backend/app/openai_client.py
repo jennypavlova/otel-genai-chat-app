@@ -23,7 +23,6 @@ def make_client() -> openai.OpenAI:
     Always pass base_url explicitly so the SDK never falls back to reading
     OPENAI_BASE_URL from the environment — an empty string there would cause
     "Request URL is missing an http:// or https:// protocol".
-    OPENAI_COMPATIBLE_BASE_URL is the name this app reads.
     """
     return openai.OpenAI(
         api_key=config.openai_api_key,

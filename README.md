@@ -241,9 +241,9 @@ All settings live in `.env` (gitignored). See `.env.example` for full details.
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENAI_COMPATIBLE_API_KEY` | API key for your LLM provider. `OPENAI_API_KEY` is still accepted | — |
-| `OPENAI_COMPATIBLE_BASE_URL` | Base URL (blank = OpenAI default; LiteLLM: `http://localhost:4000/v1`). `OPENAI_BASE_URL` is still accepted | blank |
-| `OPENAI_COMPATIBLE_MODEL` | Model name. `OPENAI_MODEL` is still accepted | `gpt-4o-mini` |
+| `OPENAI_COMPATIBLE_API_KEY` | API key for your LLM provider | — |
+| `OPENAI_COMPATIBLE_BASE_URL` | Base URL (blank = OpenAI default; LiteLLM: `http://localhost:4000/v1`) | blank |
+| `OPENAI_COMPATIBLE_MODEL` | Model name | `gpt-4o-mini` |
 | `OTEL_SERVICE_NAME` | Service name in APM | `otel-genai-chat-app` |
 | `OTEL_DEPLOYMENT_ENVIRONMENT` | Environment label in APM filter | `development` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP export destination | `http://localhost:4318` |
