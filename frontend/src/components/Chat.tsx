@@ -24,7 +24,6 @@ export function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // The model box starts from OPENAI_MODEL. A typed value still overrides it per request.
   useEffect(() => {
     let cancelled = false;
     void fetch("/api/config")
@@ -32,9 +31,7 @@ export function Chat() {
       .then((data: { model?: string }) => {
         if (!cancelled && data.model) setModel(data.model);
       })
-      .catch(() => {
-        if (!cancelled) setModel("gpt-4o-mini");
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
